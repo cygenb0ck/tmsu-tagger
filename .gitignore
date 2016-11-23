@@ -1,0 +1,8 @@
+*.pyc
+*.kate-swp
+.idea
+.directory
+*.dump
+tmp
+test_data
+venv3.4
