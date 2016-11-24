@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import subprocess
 import taglib
 
 """
@@ -13,12 +14,20 @@ import taglib
 
 """
 
-dir = "test_data"
+data_dir = "./test_data"
+
+
+def init_tmsu(tmsu_dir):
+    if not os.path.isdir(tmsu_dir + "/.tmsu") or not os.path.exists(tmsu_dir + "/.tmsu/db"):
+        p = subprocess.Popen(["tmsu", "init"], cwd=tmsu_dir)
+        p.wait()
+
+
 
 if __name__ == "__main__":
     print("hello world")
 
-    for dirName, subDirList, fileList in os.walk("./test_data"):
+    for dirName, subDirList, fileList in os.walk(data_dir):
         if len(fileList) > 0:
             for f in fileList:
                 print("{0}/{1}".format(dirName, f))
