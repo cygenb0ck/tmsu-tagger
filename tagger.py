@@ -5,6 +5,8 @@ import os
 import subprocess
 import taglib
 import re
+import argparse
+import pathlib
 
 """
 
@@ -14,15 +16,15 @@ import re
 """
 
 data_dir = "./test_data"
-mount_point_name = "mp"
-full_mount_point = data_dir + "/" + mount_point_name
+default_mount_point_name = "mp"
+full_mount_point = data_dir + "/" + default_mount_point_name
 
 
-def init_tmsu(tmsu_root, mount_point):
+def init_tmsu(tmsu_root, mount_point_full_path):
     """
     initializes tmsu at tmsu_root and creates mount_point for usage as tmsu mountpoint
     :param tmsu_root: path to tmsu_root, ex. "./data"
-    :param mount_point: path to mp inside tmsu_root, ex. "./data/mp"
+    :param mount_point_full_path: path to mp inside tmsu_root, ex. "./data/mp"
     :return:
     """
     print("----->" + tmsu_root)
@@ -30,8 +32,8 @@ def init_tmsu(tmsu_root, mount_point):
         p = subprocess.Popen(["tmsu", "init"], cwd=tmsu_root)
         p.wait()
 
-    if not os.path.exists( mount_point):
-        os.mkdir(mount_point)
+    if not os.path.exists(mount_point_full_path):
+        os.mkdir(mount_point_full_path)
 
 
 def escape_shell_chars(str):
@@ -40,7 +42,7 @@ def escape_shell_chars(str):
     :param str:
     :return:
     """
-    return re.sub("(!|\$|#|&|\"|\'|\(|\)|\||<|>|`|\\\|;)", r"\\\1", str)
+    return re.sub("(!|\$|#|&|\"|\'|\(|\)|\||<|>|`|\\\|;| )", r"\\\1", str)
 
 
 def tag(filename_rel_to_tmsu_root, tmsu_root):
@@ -71,17 +73,52 @@ def tag(filename_rel_to_tmsu_root, tmsu_root):
 
 
 if __name__ == "__main__":
-    exclude_dirs = [full_mount_point, data_dir + "/.tmsu"]
-    print(exclude_dirs)
+    """
+    needed args:
+    - data_dir
+    - opt:
+    -- mount_point
+    """
 
-    for dirName, subDirList, fileList in os.walk(data_dir):
+    parser = argparse.ArgumentParser("tagger")
+    parser.add_argument("--data-dir",        "-d",                 nargs=1, type=str, required=True,  help="the dir holding the data")
+    parser.add_argument("--mountpoint-name", "-m", default=["mp"], nargs=1, type=str, required=False, help="optional mountpointname if different than 'mp'")
+
+    args = parser.parse_args()
+
+    print("args", args)
+
+    print(args.data_dir)
+    data_dir = args.data_dir[0]
+    mountpoint_name = args.mountpoint_name[0]
+
+    exclude_dirs = [data_dir + "/" + mountpoint_name, data_dir + "/.tmsu"]
+    exclude_dirs = [ pathlib.Path(d) for d in exclude_dirs]
+    print("exclude_dirs", exclude_dirs)
+
+    init_tmsu( data_dir, data_dir + "/" + mountpoint_name )
+
+    for dirName, subDirList, fileList in os.walk(data_dir, topdown=True):
         print("dn", dirName)
-        if dirName in exclude_dirs:
+
+        dir_path = pathlib.Path(dirName)
+        is_in_ex = False
+        for ex in exclude_dirs:
+            print("ex", ex)
+            if ex == dir_path or ex in dir_path.parents:
+                is_in_ex = True
+        if is_in_ex:
             print("skipping ", dirName)
             continue
+
         if len(fileList) > 0:
             for f in fileList:
                 print("\t{0}/{1}".format(dirName, f))
+
+                print("\t\t", "." + ( "{0}/{1}".format(dirName, f)[len(data_dir):] ))
+                tag( "." + ( "{0}/{1}".format(dirName, f)[len(data_dir):] ), data_dir )
+                # tag()
+                #
                 # try:
                 #     s = taglib.File( dirName + "/" + f )
                 #     #print(s.tags)
