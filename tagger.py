@@ -6,12 +6,15 @@ import subprocess
 import taglib
 import re
 import argparse
-import pathlib
 
 """
 
 - for all files in tree: extract metadata, tag files
 
+
+tmsu problems:
+- tmsu unmount does not work on ubuntu 14.04
+- when traversing mountpoint with os.walk(...) and aborting with ^C tmsu crashes(?) and mountpoint becomes unuseable
 
 """
 
@@ -92,31 +95,23 @@ if __name__ == "__main__":
     data_dir = args.data_dir[0]
     mountpoint_name = args.mountpoint_name[0]
 
-    exclude_dirs = [data_dir + "/" + mountpoint_name, data_dir + "/.tmsu"]
-    exclude_dirs = [ pathlib.Path(d) for d in exclude_dirs]
+    exclude_dirs = [mountpoint_name, ".tmsu"]
     print("exclude_dirs", exclude_dirs)
 
     init_tmsu( data_dir, data_dir + "/" + mountpoint_name )
 
     for dirName, subDirList, fileList in os.walk(data_dir, topdown=True):
-        print("dn", dirName)
+        #remove exclude_dirs
+        subDirList[:] = [ d for d in subDirList if d not in exclude_dirs ]
 
-        dir_path = pathlib.Path(dirName)
-        is_in_ex = False
-        for ex in exclude_dirs:
-            print("ex", ex)
-            if ex == dir_path or ex in dir_path.parents:
-                is_in_ex = True
-        if is_in_ex:
-            print("skipping ", dirName)
-            continue
+        print("dn", dirName)
 
         if len(fileList) > 0:
             for f in fileList:
                 print("\t{0}/{1}".format(dirName, f))
 
                 print("\t\t", "." + ( "{0}/{1}".format(dirName, f)[len(data_dir):] ))
-                tag( "." + ( "{0}/{1}".format(dirName, f)[len(data_dir):] ), data_dir )
+                # tag( "." + ( "{0}/{1}".format(dirName, f)[len(data_dir):] ), data_dir )
                 # tag()
                 #
                 # try:
