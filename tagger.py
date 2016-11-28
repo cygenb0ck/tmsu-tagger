@@ -6,6 +6,7 @@ import subprocess
 import taglib
 import re
 import argparse
+import re
 
 """
 
@@ -22,6 +23,14 @@ data_dir = "./test_data"
 default_mount_point_name = "mp"
 full_mount_point = data_dir + "/" + default_mount_point_name
 
+regexes = {
+    re.compile("(?<!album)artist"): "artist", # artist but not albumartist
+    re.compile("title"): "title",
+    re.compile("album(?!artist)"): "album", # album but not albumartist
+    re.compile("genre"): "genre",
+    re.compile("((?<!tagging)(?<!rip)(?<!rip )(?<!traktorrelease))date"): "date",
+    re.compile("label"): "label",
+}
 
 def init_tmsu(tmsu_root, mount_point_full_path):
     """
@@ -35,7 +44,9 @@ def init_tmsu(tmsu_root, mount_point_full_path):
         p = subprocess.Popen(["tmsu", "init"], cwd=tmsu_root)
         p.wait()
 
+    print(mount_point_full_path)
     if not os.path.exists(mount_point_full_path):
+        print("tralala")
         os.mkdir(mount_point_full_path)
 
 
@@ -46,6 +57,16 @@ def escape_shell_chars(str):
     :return:
     """
     return re.sub("(!|\$|#|&|\"|\'|\(|\)|\||<|>|`|\\\|;| )", r"\\\1", str)
+
+
+def get_filtered_taglist(taglib_tags):
+    res = []
+    for tag_name, tag_values in taglib_tags.items():
+        for r, mapped_name in regexes.items():
+            r_matches = r.findall( tag_name.lower() )
+            if len(r_matches) > 0:
+                res += [ mapped_name + "=" + escape_shell_chars(v) for v in tag_values ]
+    return res
 
 
 def tag(filename_rel_to_tmsu_root, tmsu_root):
@@ -62,12 +83,12 @@ def tag(filename_rel_to_tmsu_root, tmsu_root):
 
     try:
         tl_file = taglib.File(full_filename)
-        tags = []
-        for tag_name, tag_value in tl_file.tags.items():
-            for s in tag_value:
-                tags.append( "{0}={1}".format(escape_shell_chars(tag_name.lower()), escape_shell_chars(s)))
-        cmd = ["tmsu", "tag", filename_rel_to_tmsu_root] + tags
-        print( cmd)
+
+        tag_str = get_filtered_taglist(tl_file.tags)
+        print("tags", tl_file.tags)
+        print("tag_str:", tag_str)
+
+        cmd = ["tmsu", "tag", filename_rel_to_tmsu_root ] + tag_str
         p = subprocess.Popen(cmd, cwd=tmsu_root)
         p.wait()
 
@@ -111,13 +132,4 @@ if __name__ == "__main__":
                 print("\t{0}/{1}".format(dirName, f))
 
                 print("\t\t", "." + ( "{0}/{1}".format(dirName, f)[len(data_dir):] ))
-                # tag( "." + ( "{0}/{1}".format(dirName, f)[len(data_dir):] ), data_dir )
-                # tag()
-                #
-                # try:
-                #     s = taglib.File( dirName + "/" + f )
-                #     #print(s.tags)
-                #     for k, v in s.tags.items():
-                #         print("  ", k, v)
-                # except OSError as e:
-                #     pass
+                tag( "." + ( "{0}/{1}".format(dirName, f)[len(data_dir):] ), data_dir )
