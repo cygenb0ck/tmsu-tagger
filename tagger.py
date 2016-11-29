@@ -119,6 +119,6 @@ if __name__ == "__main__":
     for dirName, subDirList, fileList in os.walk(data_dir, topdown=True):
         #remove exclude_dirs
         subDirList[:] = [ d for d in subDirList if d not in exclude_dirs ]
-       print("dn", dirName)
+        print("dn", dirName)
         for f in fileList:
             tag( "." + ( "{0}/{1}".format(dirName, f)[len(data_dir):] ), data_dir )
