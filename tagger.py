@@ -12,7 +12,6 @@ import re
 
 - for all files in tree: extract metadata, tag files
 
-
 tmsu problems:
 - tmsu unmount does not work on ubuntu 14.04
 - when traversing mountpoint with os.walk(...) and aborting with ^C tmsu crashes(?) and mountpoint becomes unuseable
@@ -50,13 +49,16 @@ def init_tmsu(tmsu_root, mount_point_full_path):
         os.mkdir(mount_point_full_path)
 
 
-def escape_shell_chars(str):
+def escape_shell_chars_tmsu(str):
     """
-    escapes all chars which would cause problems in shell
+    escapes all chars which would cause problems in shell and
+    also replaces / with \, because tmsu does not accept \ in tags
     :param str:
     :return:
     """
-    return re.sub("(!|\$|#|&|\"|\'|\(|\)|\||<|>|`|\\\|;| )", r"\\\1", str)
+    str = str.replace("/", "\\")
+    str = re.sub("(!|\$|#|&|\"|\'|\(|\)|\||<|>|`|\\\|;| )", r"\\\1", str)
+    return str
 
 
 def get_filtered_taglist(taglib_tags):
@@ -65,7 +67,7 @@ def get_filtered_taglist(taglib_tags):
         for r, mapped_name in regexes.items():
             r_matches = r.findall( tag_name.lower() )
             if len(r_matches) > 0:
-                res += [ mapped_name + "=" + escape_shell_chars(v) for v in tag_values ]
+                res += [mapped_name + "=" + escape_shell_chars_tmsu(v) for v in tag_values]
     return res
 
 
@@ -76,18 +78,11 @@ def tag(filename_rel_to_tmsu_root, tmsu_root):
     :param tmsu_root:
     :return:
     """
-    print("####################")
-    print(tmsu_root, filename_rel_to_tmsu_root)
     full_filename = tmsu_root + "/" +  filename_rel_to_tmsu_root
-    print(full_filename)
 
     try:
         tl_file = taglib.File(full_filename)
-
         tag_str = get_filtered_taglist(tl_file.tags)
-        print("tags", tl_file.tags)
-        print("tag_str:", tag_str)
-
         cmd = ["tmsu", "tag", filename_rel_to_tmsu_root ] + tag_str
         p = subprocess.Popen(cmd, cwd=tmsu_root)
         p.wait()
@@ -124,12 +119,6 @@ if __name__ == "__main__":
     for dirName, subDirList, fileList in os.walk(data_dir, topdown=True):
         #remove exclude_dirs
         subDirList[:] = [ d for d in subDirList if d not in exclude_dirs ]
-
-        print("dn", dirName)
-
-        if len(fileList) > 0:
-            for f in fileList:
-                print("\t{0}/{1}".format(dirName, f))
-
-                print("\t\t", "." + ( "{0}/{1}".format(dirName, f)[len(data_dir):] ))
-                tag( "." + ( "{0}/{1}".format(dirName, f)[len(data_dir):] ), data_dir )
+       print("dn", dirName)
+        for f in fileList:
+            tag( "." + ( "{0}/{1}".format(dirName, f)[len(data_dir):] ), data_dir )
